@@ -15,6 +15,10 @@ class User(SQLModel,table=True):
   email : str = Field(index=True,unique=True)
   password : str
   
+  violation_count : int = Field(default=0)
+  is_banned : bool = Field(default=False)
+  
+  
   chats : List["Chat"] = Relationship(back_populates="participants",link_model=ChatParticiapant)
   
   messages : List["Message"]=  Relationship(back_populates="sender")
@@ -36,8 +40,8 @@ class Message(SQLModel,table=True):
   created_at : datetime = Field(default=datetime.now())
   
   chat_id : Optional[int] = Field(default=None,foreign_key="chat.id")
-  chat : Optional[Chat] = Relationship(back_populates="messages")
-  
+  violation_status : str = Field(default="pending_review",index=True)
+  chat : Optional[Chat] = Relationship(back_populates="messages") 
   sender_id : int = Field(foreign_key="user.id")
   sender : User = Relationship(back_populates="messages")
   
