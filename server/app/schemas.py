@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
-from typing import List, Optional
+from typing import List
 from enum import Enum
 
 class ViolationStatus(str, Enum):
@@ -66,3 +66,10 @@ class ChatRead(ChatBase):
     messages: List[MessageRead] = []
     class Config:
         from_attributes = True
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+    
+class TokenData(BaseModel):
+  id: int | None = None

@@ -15,6 +15,7 @@ class User(SQLModel,table=True):
   email : str = Field(index=True,unique=True)
   password : str
   
+  is_admin : bool = Field(default=False)
   violation_count : int = Field(default=0)
   is_banned : bool = Field(default=False)
   
