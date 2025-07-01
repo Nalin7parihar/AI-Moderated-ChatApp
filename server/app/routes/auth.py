@@ -17,6 +17,7 @@ async def login(form_data : OAuth2PasswordRequestForm = Depends(), db : Session 
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="User not found")
   
   if not pwd_context.verify(form_data.password,user.password):
-    access_token = create_access_token(data={"id":user.id})
-    
-    return Token(access_token=access_token,token_type="bearer")
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Invalid Credentials")
+  
+  access_token = create_access_token(data={"id":user.id})
+  return {"access_token" : access_token,"token_type" : "bearer"}

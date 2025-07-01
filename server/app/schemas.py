@@ -36,8 +36,15 @@ class UserUpdate(BaseModel):
   password : str | None = None
   
 class AdminUserUpdate(BaseModel):
+  name : str | None = None
+  email : EmailStr | None = None
   violation_count : int | None = None
   is_banned : bool | None = None
+  
+class ChatUpdate(BaseModel):
+  title : str | None = None
+  participant_ids : List[int] | None = None
+    
 
 # --- Read Schemas ---
 class UserRead(UserBase):

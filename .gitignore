@@ -175,8 +175,10 @@ logs/
 
 # FastAPI specific
 .pytest_cache/
-alembic/versions/*.py
-!alembic/versions/__init__.py
+
+# Alembic - only ignore __pycache__ in versions, keep migration files
+alembic/versions/__pycache__/
+*.pyc
 
 # Keep existing entries
 .qodo
