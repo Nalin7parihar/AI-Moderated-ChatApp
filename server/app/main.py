@@ -10,5 +10,5 @@ def read_root():
 
 app.include_router(auth.router)
 app.include_router(users.router)
-#app.include_router(messages.router)
-#app.include_router(chats.router)
+app.include_router(messages.router)
+app.include_router(chats.router)

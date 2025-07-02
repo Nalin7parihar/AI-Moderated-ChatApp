@@ -44,7 +44,9 @@ class AdminUserUpdate(BaseModel):
 class ChatUpdate(BaseModel):
   title : str | None = None
   participant_ids : List[int] | None = None
-    
+
+class MessageUpdate(BaseModel):
+  content : str | None = None  
 
 # --- Read Schemas ---
 class UserRead(UserBase):
