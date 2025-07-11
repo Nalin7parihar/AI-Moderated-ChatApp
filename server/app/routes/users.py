@@ -63,6 +63,13 @@ async def create_user(user : UserCreate,db : Session=  Depends(get_session)):
   db.refresh(db_user)
   return db_user
 
+@router.get('/me', status_code=status.HTTP_200_OK, response_model=UserRead, tags=["users"])
+async def get_current_user_profile(current_user: User = Depends(get_current_user)):
+    """Get the current authenticated user's profile"""
+    return current_user
+
+
+
 
 @router.get('/search',status_code=status.HTTP_200_OK,response_model=List[UserRead],tags=["users"])
 async def search_users(q:str,db : Session = Depends(get_session),offset : int =0,limit : int = 100,current_user : User = Depends(get_current_user)):
@@ -118,7 +125,27 @@ async def delete_user(id : int,db : Session = Depends(get_session),current_user 
   db.delete(db_user)
   db.commit()
   return Response(status_code=status.HTTP_204_NO_CONTENT)
- 
+
+
+@router.patch('/me/password', status_code=status.HTTP_200_OK, tags=["users"])
+async def change_password(
+    password_data: dict,
+    db: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """Change the current user's password"""
+    if "new_password" not in password_data:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="new_password is required")
+    
+    # Hash the new password
+    hashed_password = pwd_context.hash(password_data["new_password"])
+    current_user.password = hashed_password
+    
+    db.add(current_user)
+    db.commit()
+    
+    return {"message": "Password updated successfully"}
+
 
 
 

@@ -82,3 +82,18 @@ class Token(BaseModel):
     
 class TokenData(BaseModel):
   id: int | None = None
+
+# --- Additional Schemas for Chat Operations ---
+class AddParticipantRequest(BaseModel):
+    user_email: EmailStr
+
+class ChatSummary(BaseModel):
+    """Lightweight chat summary without full message/participant data"""
+    id: int
+    title: str
+    created_at: datetime
+    participant_count: int
+    last_message_at: datetime | None = None
+    
+    class Config:
+        from_attributes = True

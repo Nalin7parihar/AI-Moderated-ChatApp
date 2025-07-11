@@ -1,7 +1,21 @@
 from fastapi import FastAPI,status
+from fastapi.middleware.cors import CORSMiddleware
 from app.routes import chats,users,messages,auth
 
+
+
+
+
 app = FastAPI()
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # React dev servers
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get('/',status_code=status.HTTP_200_OK)
