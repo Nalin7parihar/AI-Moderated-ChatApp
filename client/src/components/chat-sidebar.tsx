@@ -1,6 +1,4 @@
-"use client"
-
-import { useState, useEffect } from "react"
+import React,{ useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -11,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Plus, Search, Users, MessageCircle, Loader2 } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
-import { api } from "@/lib/api"
+import { useChatContext } from "@/contexts/Chat-Context"
 import { Chat } from "@/types/chat"
 
 interface ChatSidebarProps {
@@ -20,43 +18,29 @@ interface ChatSidebarProps {
 }
 
 export function ChatSidebar({ selectedChatId, onChatSelect }: ChatSidebarProps) {
-  const [chats, setChats] = useState<Chat[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [createLoading, setCreateLoading] = useState(false)
+  const [createError, setCreateError] = useState("")
   const [newChatData, setNewChatData] = useState({
     title: "",
     participant_emails: "",
   })
-  const { token, user } = useAuth()
+  const { user } = useAuth();
+  const { chats, addChat, deleteChat, updateChat, fetchChats, loading, error } = useChatContext();
 
   // Load chats on component mount
   useEffect(() => {
-    loadChats()
-  }, [token])
-
-  const loadChats = async () => {
-    if (!token) return
-    
-    try {
-      setLoading(true)
-      setError("")
-      const chatData = await api.getChats(token)
-      setChats(chatData)
-    } catch (error: any) {
-      setError(error.message || "Failed to load chats")
-    } finally {
-      setLoading(false)
+    if (chats.length === 0) {
+      fetchChats();
     }
-  }
+  }, [])
 
   const handleCreateChat = async () => {
-    if (!token || !user) return
+    if (!user) return
     
     setCreateLoading(true)
-    setError("")
+    setCreateError("")
     
     try {
       // Parse participant emails
@@ -66,23 +50,23 @@ export function ChatSidebar({ selectedChatId, onChatSelect }: ChatSidebarProps) 
         .filter(email => email.length > 0)
       
       if (emails.length === 0) {
-        setError("Please enter at least one participant email")
+        setCreateError("Please enter at least one participant email")
         return
       }
       
       // For now, we'll need to get user IDs from emails
       // This is a limitation - ideally we'd have a user search endpoint
       // For demo purposes, we'll create a basic chat structure
-      const newChat = await api.createChat(token, {
+      await addChat({
         title: newChatData.title || "New Chat",
         participant_ids: [user.id] // Start with just current user, participants can be added later
       })
       
-      setChats([newChat, ...chats])
       setIsCreateDialogOpen(false)
       setNewChatData({ title: "", participant_emails: "" })
+      setCreateError("")
     } catch (error: any) {
-      setError(error.message || "Failed to create chat")
+      setCreateError(error.message || "Failed to create chat")
     } finally {
       setCreateLoading(false)
     }
@@ -156,9 +140,9 @@ export function ChatSidebar({ selectedChatId, onChatSelect }: ChatSidebarProps) 
                     Note: For now, chats start with just you. Participants will be added via the chat management feature.
                   </p>
                 </div>
-                {error && (
+                {createError && (
                   <Alert variant="destructive">
-                    <AlertDescription>{error}</AlertDescription>
+                    <AlertDescription>{createError}</AlertDescription>
                   </Alert>
                 )}
                 <Button 
@@ -196,7 +180,7 @@ export function ChatSidebar({ selectedChatId, onChatSelect }: ChatSidebarProps) 
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
               <Button 
-                onClick={loadChats} 
+                onClick={fetchChats} 
                 variant="outline" 
                 size="sm" 
                 className="mt-2 w-full"

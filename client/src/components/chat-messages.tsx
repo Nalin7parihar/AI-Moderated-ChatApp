@@ -1,5 +1,3 @@
-"use client"
-
 import type React from "react"
 import { useState, useEffect, useRef } from "react"
 import { useAuth } from "@/contexts/AuthContext"
@@ -11,14 +9,16 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Send, MoreVertical, Edit, Trash2, Loader2, MessageCircle } from "lucide-react"
 import { format } from "date-fns"
-import { api } from "@/lib/api"
 import { Message } from "@/types/message"
-
+import { api } from "@/lib/api"
+import { ChatSettings } from "./chat-settings"
+import useWebSocket from "@/hooks/useWebSocket"
 interface ChatMessagesProps {
   chatId: string
+  onChatDeleted?: () => void
 }
 
-export function ChatMessages({ chatId }: ChatMessagesProps) {
+export function ChatMessages({ chatId, onChatDeleted }: ChatMessagesProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -28,7 +28,9 @@ export function ChatMessages({ chatId }: ChatMessagesProps) {
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null)
   const [editingContent, setEditingContent] = useState("")
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const { user, token } = useAuth()
+  const { user } = useAuth()
+  
+  useWebSocket(`http://127.0.0.1:8000/ws/${chatId}`)
 
   // Load messages when chat changes
   useEffect(() => {
@@ -36,7 +38,7 @@ export function ChatMessages({ chatId }: ChatMessagesProps) {
       loadMessages()
       setActionError("") // Clear action errors when changing chats
     }
-  }, [chatId, token])
+  }, [chatId])
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -54,14 +56,13 @@ export function ChatMessages({ chatId }: ChatMessagesProps) {
   }, [actionError])
 
   const loadMessages = async () => {
-    if (!token || !chatId) return
+    if (!chatId) return
     
     try {
       setLoading(true)
+      const messageData = await api.getMessages(chatId)
+      setMessages(messageData)
       setError("")
-      const messageData = await api.getMessages(token, chatId)
-      // getMessages now returns empty array instead of throwing error for no messages
-      setMessages(Array.isArray(messageData) ? messageData : [])
     } catch (error: any) {
       console.error('Error loading messages:', error)
       setError(error.message || "Failed to load messages")
@@ -77,7 +78,7 @@ export function ChatMessages({ chatId }: ChatMessagesProps) {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newMessage.trim() || !token || !chatId || sending) return
+    if (!newMessage.trim() || !chatId || sending) return
 
     const messageContent = newMessage.trim()
     setNewMessage("")
@@ -85,7 +86,7 @@ export function ChatMessages({ chatId }: ChatMessagesProps) {
     setActionError("") // Clear any previous action errors
 
     try {
-      const sentMessage = await api.sendMessage(token, {
+      const sentMessage = await api.sendMessage({
         content: messageContent,
         chat_id: chatId
       })
@@ -100,10 +101,10 @@ export function ChatMessages({ chatId }: ChatMessagesProps) {
   }
 
   const handleEditMessage = async (messageId: number) => {
-    if (!token || !editingContent.trim()) return
+    if (!editingContent.trim()) return
 
     try {
-      const updatedMessage = await api.updateMessage(token, messageId.toString(), editingContent.trim())
+      const updatedMessage = await api.updateMessage(messageId.toString(), editingContent.trim())
       setMessages(messages.map(msg => 
         msg.id === messageId ? updatedMessage : msg
       ))
@@ -117,10 +118,8 @@ export function ChatMessages({ chatId }: ChatMessagesProps) {
   }
 
   const handleDeleteMessage = async (messageId: number) => {
-    if (!token) return
-
     try {
-      await api.deleteMessage(token, messageId.toString())
+      await api.deleteMessage(messageId.toString())
       setMessages(messages.filter(msg => msg.id !== messageId))
       setActionError("") // Clear any previous action errors
     } catch (error: any) {
@@ -163,6 +162,17 @@ export function ChatMessages({ chatId }: ChatMessagesProps) {
 
   return (
     <div className="flex-1 flex flex-col bg-gray-900">
+      {/* Chat Header */}
+      <div className="border-b border-gray-700 p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-white">Chat</h2>
+            <p className="text-sm text-gray-400">Active conversation</p>
+          </div>
+          <ChatSettings chatId={chatId} onChatDeleted={onChatDeleted} />
+        </div>
+      </div>
+
       {/* Messages Area */}
       <ScrollArea className="flex-1 px-4 py-2">
         {loading ? (

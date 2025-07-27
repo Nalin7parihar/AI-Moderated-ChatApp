@@ -22,23 +22,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Load token from localStorage on mount
   useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    if (storedToken) {
-      setToken(storedToken);
-      // Verify token and get user data
-      loadUserData(storedToken);
-    } else {
-      setLoading(false);
-    }
+    // Add a small delay to prevent hydration issues
+    const initializeAuth = async () => {
+      try {
+        const storedToken = localStorage.getItem('token');
+        if (storedToken && storedToken.trim() !== '') {
+          setToken(storedToken);
+          // Verify token and get user data
+          await loadUserData(storedToken);
+        } else {
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+        setLoading(false);
+      }
+    };
+
+    // Small delay to ensure component is mounted
+    const timer = setTimeout(initializeAuth, 100);
+    return () => clearTimeout(timer);
   }, []);
 
   const loadUserData = async (authToken: string, retries = 2) => {
     let lastError: any = null;
     try {
-      const userData = await api.getCurrentUser(authToken);
+      const userData = await api.getCurrentUser();
       setUser(userData);
     } catch (error: any) {
       lastError = error;
+      
+      // Handle specific authentication errors gracefully
+      if (error.message === 'AUTHENTICATION_EXPIRED' || error.message === 'AUTHENTICATION_REQUIRED') {
+        console.log('Authentication session expired or invalid, clearing token');
+        localStorage.removeItem('token');
+        setToken(null);
+        setUser(null);
+        return;
+      }
+      
       console.error('Failed to load user data:', error);
       
       // Retry on network errors
@@ -55,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // If token is invalid or retries exhausted, clear it
       localStorage.removeItem('token');
       setToken(null);
+      setUser(null);
     } finally {
       // Only set loading to false if we're not retrying
       if (retries === 0 || !lastError || !(
@@ -132,6 +155,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
     loading,
   };
+
+  // Show loading screen during initial authentication check
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <AuthContext.Provider value={value}>
