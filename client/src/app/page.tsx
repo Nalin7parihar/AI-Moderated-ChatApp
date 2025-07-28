@@ -1,13 +1,13 @@
 "use client"
 
-import { useState } from "react"
 import { ProtectedRoute } from "@/components/protected-route"
 import { AppHeader } from "@/components/app-header"
 import { ChatSidebar } from "@/components/chat-sidebar"
 import { ChatMessages } from "@/components/chat-messages"
+import { useChatContext } from "@/contexts/Chat-Context"
 
 export default function HomePage() {
-  const [selectedChatId, setSelectedChatId] = useState<string | null>(null) // Start with no chat selected
+  const { selectedChatId, setSelectedChatId } = useChatContext()
 
   return (
     <ProtectedRoute>
@@ -17,7 +17,7 @@ export default function HomePage() {
         {/* Main Chat Content */}
         <div className="flex-1 flex">
           <ChatSidebar selectedChatId={selectedChatId} onChatSelect={setSelectedChatId} />
-          <ChatMessages chatId={selectedChatId || ""} />
+          <ChatMessages chatId={selectedChatId || 0} />
         </div>
       </div>
     </ProtectedRoute>

@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException,status, Query, Response,WebSocket,WebSocketDisconnect
 from typing import List,Annotated
 from sqlmodel import Session,select
+import json
 from app.databases import get_session
 from app.model import User, Message,Chat
 from app.schemas import MessageCreate,MessageRead,MessageUpdate
-from app.oauth2 import get_current_user
+from app.oauth2 import get_current_user, get_current_user_websocket
 from app.websockets import manager
 
 
@@ -16,14 +17,45 @@ router = APIRouter(prefix='/messages',tags=['messages'])
 
 @router.websocket('/ws/{chat_id}')
 async def websocket_endpoint(websocket : WebSocket, chat_id : int):
-  
-  await manager.connect(websocket,chat_id)
+  db = None
   try:
+    # Get database session
+    db = next(get_session())
+    
+    # Get user from WebSocket authentication
+    current_user = await get_current_user_websocket(websocket, db)
+    if not current_user:
+      return
+    
+    # Check if user is participant in the chat
+    db_chat = db.get(Chat, chat_id)
+    if not db_chat:
+      await websocket.close(code=4004, reason="Chat not found")
+      return
+    
+    if current_user not in db_chat.participants:
+      await websocket.close(code=4003, reason="You are not a participant in this chat")
+      return
+    
+    # Connect to WebSocket
+    await manager.connect(websocket, chat_id)
+    print(f"User {current_user.name} connected to chat {chat_id}")
     
     while True:
-      await websocket.receive_text()
+      data = await websocket.receive_text()
+      print(f"Received message in chat {chat_id}: {data}")
+      # Echo back or handle the message as needed
+      
   except WebSocketDisconnect:
-    manager.disconnect(websocket,chat_id)
+    manager.disconnect(websocket, chat_id)
+    print(f"User disconnected from chat {chat_id}")
+  except Exception as e:
+    print(f"WebSocket error: {e}")
+    manager.disconnect(websocket, chat_id)
+  finally:
+    # Close database session
+    if db:
+      db.close()
     
     
     
@@ -35,7 +67,7 @@ async def get_messages(chat_id : int,db : Session = Depends(get_session),offset 
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
     if current_user not in db_chat.participants:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not a participant in this chat")
-    statement = select(Message).where(Message.chat_id == chat_id).order_by(Message.created_at.desc()).offset(offset).limit(limit)
+    statement = select(Message).where(Message.chat_id == chat_id).order_by(Message.created_at.asc()).offset(offset).limit(limit)
     results = db.exec(statement).all()  
     return results
   
@@ -54,8 +86,22 @@ async def create_message(chat_id : int, message : MessageCreate, db : Session = 
   db.commit()
   db.refresh(db_message)
   
+  # Send structured message data to WebSocket clients
+  message_data = {
+    "type": "new_message",
+    "message": {
+      "id": db_message.id,
+      "content": db_message.content,
+      "created_at": db_message.created_at.isoformat(),
+      "sender": {
+        "id": current_user.id,
+        "name": current_user.name,
+        "email": current_user.email
+      }
+    }
+  }
   
-  await manager.broadcast(f"New message from {current_user.name} : {db_message.content}",chat_id)
+  await manager.broadcast(json.dumps(message_data), chat_id)
   return db_message
 
 @router.patch('/{message_id}',response_model=MessageRead)

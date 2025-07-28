@@ -21,7 +21,7 @@ const useWebSocket = (url: string) => {
 
   useEffect(() => {
     // Get token from localStorage automatically
-    const token = localStorage.getItem("access_token");
+    const token = localStorage.getItem("token");
     if (!token) {
       console.error("No authentication token found");
       return;

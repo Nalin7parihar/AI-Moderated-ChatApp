@@ -1,5 +1,5 @@
 from fastapi.security import OAuth2PasswordBearer
-from fastapi import Depends,HTTPException,status
+from fastapi import Depends,HTTPException,status,WebSocket,WebSocketException
 from jose import jwt,JWTError
 from datetime import datetime,timezone,timedelta
 from sqlmodel import Session
@@ -27,10 +27,16 @@ def verify_token(token : str,credentials_exception):
     payload = jwt.decode(token,SECRET_KEY,algorithms=[ALGORITHM])
     user_id = payload.get("id")
     if user_id is None:
-      raise credentials_exception
+      if credentials_exception:
+        raise credentials_exception
+      else:
+        raise Exception("Invalid token: no user ID")
     token_data = TokenData(id=user_id)
   except JWTError:
-    raise credentials_exception
+    if credentials_exception:
+      raise credentials_exception
+    else:
+      raise Exception("JWT decode error")
   
   return token_data
 
@@ -55,5 +61,34 @@ def get_admin_user(current_user : User = Depends(get_current_user)):
       detail="Admin permissions required"
     )
   return current_user   
+
+async def get_current_user_websocket(websocket: WebSocket, db: Session):
+  try:
+    # Get token from query parameters
+    token = websocket.query_params.get("token")
+    if not token:
+      await websocket.close(code=4001, reason="Missing authentication token")
+      return None
+    
+    # Validate token
+    try:
+      token_data = verify_token(token, None)
+      user = db.get(User, token_data.id)
+      if user is None:
+        await websocket.close(code=4001, reason="User not found")
+        return None
+      return user
+    except Exception as auth_error:
+      print(f"WebSocket authentication error: {auth_error}")
+      await websocket.close(code=4001, reason="Invalid authentication token")
+      return None
+      
+  except Exception as e:
+    print(f"WebSocket authentication exception: {e}")
+    try:
+      await websocket.close(code=4001, reason="Authentication failed")
+    except:
+      pass  # Connection might already be closed
+    return None
 
 

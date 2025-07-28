@@ -12,9 +12,9 @@ import { format } from "date-fns"
 import { Message } from "@/types/message"
 import { api } from "@/lib/api"
 import { ChatSettings } from "./chat-settings"
-import useWebSocket from "@/hooks/useWebSocket"
+import useNativeWebSocket from "@/hooks/useNativeWebSocket"
 interface ChatMessagesProps {
-  chatId: string
+  chatId: number
   onChatDeleted?: () => void
 }
 
@@ -30,7 +30,22 @@ export function ChatMessages({ chatId, onChatDeleted }: ChatMessagesProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const { user } = useAuth()
   
-  useWebSocket(`http://127.0.0.1:8000/ws/${chatId}`)
+  const { isConnected, error: wsError, onMessage } = useNativeWebSocket(chatId)
+  
+  // Set up WebSocket message handler
+  useEffect(() => {
+    onMessage((newMessage: Message) => {
+      console.log("Received new message via WebSocket:", newMessage);
+      setMessages(prevMessages => {
+        // Check if message already exists to avoid duplicates
+        const messageExists = prevMessages.some(msg => msg.id === newMessage.id);
+        if (!messageExists) {
+          return [...prevMessages, newMessage];
+        }
+        return prevMessages;
+      });
+    });
+  }, [onMessage]);
 
   // Load messages when chat changes
   useEffect(() => {
@@ -86,11 +101,11 @@ export function ChatMessages({ chatId, onChatDeleted }: ChatMessagesProps) {
     setActionError("") // Clear any previous action errors
 
     try {
-      const sentMessage = await api.sendMessage({
+      await api.sendMessage({
         content: messageContent,
         chat_id: chatId
       })
-      setMessages([...messages, sentMessage])
+      // Don't add message to local state - it will come through WebSocket
     } catch (error: any) {
       console.error('Error sending message:', error)
       setActionError(error.message || "Failed to send message")
@@ -161,20 +176,30 @@ export function ChatMessages({ chatId, onChatDeleted }: ChatMessagesProps) {
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-900">
+    <div className="flex-1 flex flex-col bg-gray-900 h-full max-h-screen">
       {/* Chat Header */}
-      <div className="border-b border-gray-700 p-4">
+      <div className="border-b border-gray-700 p-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-white">Chat</h2>
-            <p className="text-sm text-gray-400">Active conversation</p>
+            <div className="flex items-center space-x-2">
+              <p className="text-sm text-gray-400">Active conversation</p>
+              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} title={isConnected ? 'Connected' : 'Disconnected'} />
+            </div>
           </div>
           <ChatSettings chatId={chatId} onChatDeleted={onChatDeleted} />
         </div>
+        {wsError && (
+          <div className="mt-2 text-sm text-red-400">
+            WebSocket Error: {wsError}
+          </div>
+        )}
       </div>
 
-      {/* Messages Area */}
-      <ScrollArea className="flex-1 px-4 py-2">
+      {/* Messages Area - Scrollable with fixed height */}
+      <div className="flex-1 overflow-hidden min-h-0">
+        <ScrollArea className="h-full px-4 py-2">
+          <div className="min-h-full flex flex-col justify-end">
         {loading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
@@ -221,7 +246,7 @@ export function ChatMessages({ chatId, onChatDeleted }: ChatMessagesProps) {
             </div>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4 pb-4">
             {messages.map((message) => {
               const isCurrentUser = message.sender.id === user?.id
               const isEditing = editingMessageId === message.id
@@ -330,10 +355,12 @@ export function ChatMessages({ chatId, onChatDeleted }: ChatMessagesProps) {
             <div ref={messagesEndRef} />
           </div>
         )}
+          </div>
       </ScrollArea>
+      </div>
 
       {/* Message Input */}
-      <div className="border-t border-gray-700 p-4">
+      <div className="border-t border-gray-700 p-4 flex-shrink-0">
         {/* Action Error Display */}
         {actionError && (
           <div className="mb-3">

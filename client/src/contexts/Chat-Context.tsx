@@ -6,6 +6,8 @@ import axios from 'axios';
 import { api } from "@/lib/api";
 interface ChatContextType {
   chats : Chat[],
+  selectedChatId: number | null,
+  setSelectedChatId: (chatId: number | null) => void,
   fetchChats : () => Promise<void>,
   addChat : (chat : ChatCreate) => Promise<void>,
   updateChat : (chatId : number, chatData : ChatUpdate) => Promise<void>,
@@ -23,6 +25,7 @@ const ChatContext=  createContext<ChatContextType | undefined>(undefined)
 
 export const  ChatProvider  = ({children} : {children :ReactNode}) =>{
   const [chats,setChats] = useState<Chat[]>([])
+  const [selectedChatId, setSelectedChatId] = useState<number | null>(null)
   const [loading,isLoading] = useState(true);
   const [error,setError] = useState<string | null>(null);
   
@@ -71,6 +74,10 @@ export const  ChatProvider  = ({children} : {children :ReactNode}) =>{
     try {
       await api.deleteChat(chatId.toString());
       setChats(prev => prev.filter(chat => chat.id !== chatId));
+      // Clear selected chat if it's the one being deleted
+      if (selectedChatId === chatId) {
+        setSelectedChatId(null);
+      }
     } catch (error) {
       setError(error instanceof Error ? error.message : "Failed to delete chat");
       throw error;
@@ -103,9 +110,13 @@ export const  ChatProvider  = ({children} : {children :ReactNode}) =>{
 
   const leaveChat = async (chatId : number) => {
     try {
-      await api.leaveChat(chatId.toString());
+      await api.leaveChat(chatId);
       // Remove chat from local state since user left
       setChats(prev => prev.filter(chat => chat.id !== chatId));
+      // Clear selected chat if it's the one being left
+      if (selectedChatId === chatId) {
+        setSelectedChatId(null);
+      }
     } catch (error) {
       setError(error instanceof Error ? error.message : "Failed to leave chat");
       throw error;
@@ -114,7 +125,7 @@ export const  ChatProvider  = ({children} : {children :ReactNode}) =>{
 
   const getChatParticipants = async (chatId : number) : Promise<User[]> => {
     try {
-      const participants = await api.getChatParticipants(chatId.toString());
+      const participants = await api.getChatParticipants(chatId);
       return participants;
     } catch (error) {
       setError(error instanceof Error ? error.message : "Failed to get chat participants");
@@ -145,6 +156,8 @@ export const  ChatProvider  = ({children} : {children :ReactNode}) =>{
   return (
     <ChatContext.Provider value={{
       chats,
+      selectedChatId,
+      setSelectedChatId,
       addChat,
       updateChat,
       deleteChat,

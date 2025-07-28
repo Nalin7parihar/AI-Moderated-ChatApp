@@ -13,8 +13,8 @@ import { useChatContext } from "@/contexts/Chat-Context"
 import { Chat } from "@/types/chat"
 
 interface ChatSidebarProps {
-  selectedChatId: string | null
-  onChatSelect: (chatId: string) => void
+  selectedChatId: number | null
+  onChatSelect: (chatId: number | null) => void
 }
 
 export function ChatSidebar({ selectedChatId, onChatSelect }: ChatSidebarProps) {
@@ -198,9 +198,9 @@ export function ChatSidebar({ selectedChatId, onChatSelect }: ChatSidebarProps) 
             filteredChats.map((chat) => (
               <div
                 key={chat.id}
-                onClick={() => onChatSelect(chat.id.toString())}
+                onClick={() => onChatSelect(chat.id)}
                 className={`p-3 rounded-lg cursor-pointer hover:bg-gray-700 mb-2 ${
-                  selectedChatId === chat.id.toString() ? "bg-blue-900 border border-blue-700" : ""
+                  selectedChatId === chat.id ? "bg-blue-900 border border-blue-700" : ""
                 }`}
               >
                 <div className="flex items-center space-x-3">

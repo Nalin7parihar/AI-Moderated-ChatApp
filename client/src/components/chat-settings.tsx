@@ -42,7 +42,7 @@ import { Chat } from "@/types/chat"
 import { User } from "@/types/user"
 
 interface ChatSettingsProps {
-  chatId: string
+  chatId: number
   onChatDeleted?: () => void
 }
 
@@ -60,8 +60,8 @@ export function ChatSettings({ chatId, onChatDeleted }: ChatSettingsProps) {
   } = useChatContext()
   
   // Find current chat
-  const currentChat = chats.find(chat => chat.id.toString() === chatId)
-  
+  const currentChat = chats.find(chat => chat.id === chatId)
+
   // Component state
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -100,7 +100,7 @@ export function ChatSettings({ chatId, onChatDeleted }: ChatSettingsProps) {
   const loadParticipants = async () => {
     try {
       setParticipantsLoading(true)
-      const participantsData = await getChatParticipants(parseInt(chatId))
+      const participantsData = await getChatParticipants(chatId)
       setParticipants(participantsData)
     } catch (error: any) {
       console.error('Error loading participants:', error)
@@ -119,9 +119,9 @@ export function ChatSettings({ chatId, onChatDeleted }: ChatSettingsProps) {
     try {
       setLoading(true)
       setError("")
-      
-      await updateChat(parseInt(chatId), { 
-        title: editTitle.trim() 
+
+      await updateChat(chatId, {
+        title: editTitle.trim()
       })
       
       setIsEditDialogOpen(false)
@@ -138,7 +138,7 @@ export function ChatSettings({ chatId, onChatDeleted }: ChatSettingsProps) {
       setLoading(true)
       setError("")
       
-      await deleteChat(parseInt(chatId))
+      await deleteChat(chatId)
       
       setIsDeleteDialogOpen(false)
       setIsSettingsOpen(false)
@@ -161,7 +161,7 @@ export function ChatSettings({ chatId, onChatDeleted }: ChatSettingsProps) {
       setLoading(true)
       setParticipantError("")
       
-      await addParticipant(parseInt(chatId), newParticipantEmail.trim())
+      await addParticipant(chatId, newParticipantEmail.trim())
       
       // Refresh participants list
       await loadParticipants()
@@ -181,7 +181,7 @@ export function ChatSettings({ chatId, onChatDeleted }: ChatSettingsProps) {
       setLoading(true)
       setError("")
       
-      await removeParticipant(parseInt(chatId), participantEmail)
+      await removeParticipant(chatId, participantEmail)
       
       // Refresh participants list
       await loadParticipants()
@@ -198,7 +198,7 @@ export function ChatSettings({ chatId, onChatDeleted }: ChatSettingsProps) {
       setLoading(true)
       setError("")
       
-      await leaveChat(parseInt(chatId))
+      await leaveChat(chatId)
       
       setIsLeaveDialogOpen(false)
       setIsSettingsOpen(false)
